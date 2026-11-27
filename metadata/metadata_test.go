@@ -139,7 +139,7 @@ func TestMetadataCreation(t *testing.T) {
 				expires = meta.Signed.Expires
 			}
 			if tt.fixed {
-				assert.Equal(t, fixedExpire, expires)
+				assert.Equal(t, fixedExpire.Truncate(time.Second), expires)
 			}
 		})
 	}
@@ -511,6 +511,10 @@ const TEST_REPOSITORY_DATA = "../internal/testutils/repository_data/repository/m
 
 var fixedExpire = time.Date(2030, 8, 15, 14, 30, 45, 100, time.UTC)
 
+// the constructors truncate expires to second precision per the TUF spec, so
+// anything that has been through Root/Snapshot/Targets/Timestamp carries this.
+var fixedExpireTruncated = fixedExpire.Truncate(time.Second)
+
 func getSignatureByKeyID(signatures []Signature, keyID string) (HexBytes, int) {
 	for i, sig := range signatures {
 		if sig.KeyID == keyID {
@@ -527,10 +531,11 @@ func TestDefaultValuesRoot(t *testing.T) {
 	assert.GreaterOrEqual(t, []time.Time{time.Now().UTC()}[0], meta.Signed.Expires)
 
 	// setting expiration
+	// the constructors truncate expires to second precision, per the TUF spec
 	expire := time.Now().AddDate(0, 0, 2).UTC()
 	meta = Root(expire)
 	assert.NotNil(t, meta)
-	assert.Equal(t, expire, meta.Signed.Expires)
+	assert.Equal(t, expire.Truncate(time.Second), meta.Signed.Expires)
 
 	// Type
 	assert.Equal(t, ROOT, meta.Signed.Type)
@@ -567,7 +572,7 @@ func TestDefaultValuesSnapshot(t *testing.T) {
 	expire := time.Now().AddDate(0, 0, 2).UTC()
 	meta = Snapshot(expire)
 	assert.NotNil(t, meta)
-	assert.Equal(t, expire, meta.Signed.Expires)
+	assert.Equal(t, expire.Truncate(time.Second), meta.Signed.Expires)
 
 	// Type
 	assert.Equal(t, SNAPSHOT, meta.Signed.Type)
@@ -595,7 +600,7 @@ func TestDefaultValuesTimestamp(t *testing.T) {
 	expire := time.Now().AddDate(0, 0, 2).UTC()
 	meta = Timestamp(expire)
 	assert.NotNil(t, meta)
-	assert.Equal(t, expire, meta.Signed.Expires)
+	assert.Equal(t, expire.Truncate(time.Second), meta.Signed.Expires)
 
 	// Type
 	assert.Equal(t, TIMESTAMP, meta.Signed.Type)
@@ -623,7 +628,7 @@ func TestDefaultValuesTargets(t *testing.T) {
 	expire := time.Now().AddDate(0, 0, 2).UTC()
 	meta = Targets(expire)
 	assert.NotNil(t, meta)
-	assert.Equal(t, expire, meta.Signed.Expires)
+	assert.Equal(t, expire.Truncate(time.Second), meta.Signed.Expires)
 
 	// Type
 	assert.Equal(t, TARGETS, meta.Signed.Type)
@@ -1016,25 +1021,25 @@ func TestUnrecognizedFieldRolesSigned(t *testing.T) {
 	root.Signed.UnrecognizedFields = testUnrecognizedField
 	rootJSON, err := root.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"root\",\"consistent_snapshot\":true,\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"keys\":{},\"roles\":{\"root\":{\"keyids\":[],\"threshold\":1},\"snapshot\":{\"keyids\":[],\"threshold\":1},\"targets\":{\"keyids\":[],\"threshold\":1},\"timestamp\":{\"keyids\":[],\"threshold\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), rootJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"root\",\"consistent_snapshot\":true,\"expires\":\"2030-08-15T14:30:45Z\",\"keys\":{},\"roles\":{\"root\":{\"keyids\":[],\"threshold\":1},\"snapshot\":{\"keyids\":[],\"threshold\":1},\"targets\":{\"keyids\":[],\"threshold\":1},\"timestamp\":{\"keyids\":[],\"threshold\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), rootJSON)
 
 	targets := Targets(fixedExpire)
 	targets.Signed.UnrecognizedFields = testUnrecognizedField
 	targetsJSON, err := targets.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"targets\",\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"targets\":{},\"test\":\"true\",\"version\":1}}"), targetsJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"targets\",\"expires\":\"2030-08-15T14:30:45Z\",\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"targets\":{},\"test\":\"true\",\"version\":1}}"), targetsJSON)
 
 	snapshot := Snapshot(fixedExpire)
 	snapshot.Signed.UnrecognizedFields = testUnrecognizedField
 	snapshotJSON, err := snapshot.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"snapshot\",\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"meta\":{\"targets.json\":{\"version\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), snapshotJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"snapshot\",\"expires\":\"2030-08-15T14:30:45Z\",\"meta\":{\"targets.json\":{\"version\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), snapshotJSON)
 
 	timestamp := Timestamp(fixedExpire)
 	timestamp.Signed.UnrecognizedFields = testUnrecognizedField
 	timestampJSON, err := timestamp.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"timestamp\",\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"meta\":{\"snapshot.json\":{\"version\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), timestampJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"timestamp\",\"expires\":\"2030-08-15T14:30:45Z\",\"meta\":{\"snapshot.json\":{\"version\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"test\":\"true\",\"version\":1}}"), timestampJSON)
 }
 func TestUnrecognizedFieldGenericMetadata(t *testing.T) {
 	// fixed expire
@@ -1048,7 +1053,7 @@ func TestUnrecognizedFieldGenericMetadata(t *testing.T) {
 	root.UnrecognizedFields = testUnrecognizedField
 	rootJSON, err := root.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"root\",\"consistent_snapshot\":true,\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"keys\":{},\"roles\":{\"root\":{\"keyids\":[],\"threshold\":1},\"snapshot\":{\"keyids\":[],\"threshold\":1},\"targets\":{\"keyids\":[],\"threshold\":1},\"timestamp\":{\"keyids\":[],\"threshold\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"version\":1},\"test\":\"true\"}"), rootJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"root\",\"consistent_snapshot\":true,\"expires\":\"2030-08-15T14:30:45Z\",\"keys\":{},\"roles\":{\"root\":{\"keyids\":[],\"threshold\":1},\"snapshot\":{\"keyids\":[],\"threshold\":1},\"targets\":{\"keyids\":[],\"threshold\":1},\"timestamp\":{\"keyids\":[],\"threshold\":1}},\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"version\":1},\"test\":\"true\"}"), rootJSON)
 }
 func TestTargetFilesCustomField(t *testing.T) {
 	// custom JSON to test
@@ -1066,17 +1071,18 @@ func TestTargetFilesCustomField(t *testing.T) {
 	targets.Signed.Targets["testTarget"] = targetFile
 	targetsJSON, err := targets.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"targets\",\"expires\":\"2030-08-15T14:30:45.0000001Z\",\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"targets\":{\"testTarget\":{\"custom\":{\"test\":true},\"hashes\":{},\"length\":0}},\"version\":1}}"), targetsJSON)
+	assert.Equal(t, []byte("{\"signatures\":[],\"signed\":{\"_type\":\"targets\",\"expires\":\"2030-08-15T14:30:45Z\",\"spec_version\":\""+SPECIFICATION_VERSION+"\",\"targets\":{\"testTarget\":{\"custom\":{\"test\":true},\"hashes\":{},\"length\":0}},\"version\":1}}"), targetsJSON)
 }
 
 func TestFromBytes(t *testing.T) {
 	root := Root(fixedExpire)
-	assert.Equal(t, fixedExpire, root.Signed.Expires)
+	assert.Equal(t, fixedExpireTruncated, root.Signed.Expires)
 
 	_, err := root.FromBytes(testRootBytes)
 	assert.NoError(t, err)
 
-	assert.Equal(t, fixedExpire, root.Signed.Expires)
+	// parsed metadata keeps the precision it was signed with, so this is the
+	// untruncated fixture value rather than what the constructor would produce
 	assert.Equal(t, fixedExpire, root.Signed.Expires)
 	assert.Equal(t, ROOT, root.Signed.Type)
 	assert.True(t, root.Signed.ConsistentSnapshot)
@@ -1149,7 +1155,8 @@ func TestToByte(t *testing.T) {
 	root.Signatures = append(root.Signatures, Signature{KeyID: "roothash", Signature: hash["ed25519"]})
 	rootBytes, err := root.ToBytes(false)
 	assert.NoError(t, err)
-	assert.Equal(t, string(testRootBytes), string(rootBytes))
+	expectedRootBytes := bytes.ReplaceAll(testRootBytes, []byte(".0000001Z"), []byte("Z"))
+	assert.Equal(t, expectedRootBytes, rootBytes)
 }
 
 func TestFromFile(t *testing.T) {
@@ -1157,7 +1164,7 @@ func TestFromFile(t *testing.T) {
 	_, err := root.FromFile(filepath.Join(TEST_REPOSITORY_DATA, "1.root.json"))
 	assert.NoError(t, err)
 
-	assert.Equal(t, fixedExpire, root.Signed.Expires)
+	// parsed from disk, so the original precision is preserved
 	assert.Equal(t, fixedExpire, root.Signed.Expires)
 	assert.Equal(t, ROOT, root.Signed.Type)
 	assert.True(t, root.Signed.ConsistentSnapshot)
@@ -1214,7 +1221,10 @@ func TestToFile(t *testing.T) {
 	assert.FileExists(t, fileName)
 	data, err := os.ReadFile(fileName)
 	assert.NoError(t, err)
-	assert.Equal(t, string(testRootBytes), string(data))
+	// This root was parsed from bytes rather than constructed, so its expires is
+	// written back exactly as it arrived. Rewriting it here would change the
+	// signed bytes and invalidate the signature over them.
+	assert.Equal(t, testRootBytes, data)
 
 	err = os.RemoveAll(tmpDir)
 	assert.NoError(t, err)
@@ -2507,6 +2517,93 @@ func TestMetadataVerifyDelegate(t *testing.T) {
 	assert.NoError(t, err)
 	err = root.VerifyDelegate(SNAPSHOT, snapshot)
 	assert.NoError(t, err)
+}
+
+func TestVerifyDelegateDuplicateSignatureKeyIDs(t *testing.T) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+	key, err := KeyFromPublicKey(pub)
+	assert.NoError(t, err)
+	keyID, err := key.ID()
+	assert.NoError(t, err)
+	signer, err := signature.LoadSignerVerifier(priv, crypto.Hash(0))
+	assert.NoError(t, err)
+
+	root := Root(fixedExpire)
+	for _, role := range []string{ROOT, SNAPSHOT, TIMESTAMP, TARGETS} {
+		assert.NoError(t, root.Signed.AddKey(key, role))
+	}
+
+	validRootSig, err := root.Sign(signer)
+	assert.NoError(t, err)
+	snapshot := Snapshot(fixedExpire)
+	validSnapshotSig, err := snapshot.Sign(signer)
+	assert.NoError(t, err)
+	timestamp := Timestamp(fixedExpire)
+	validTimestampSig, err := timestamp.Sign(signer)
+	assert.NoError(t, err)
+	targets := Targets(fixedExpire)
+	validTargetsSig, err := targets.Sign(signer)
+	assert.NoError(t, err)
+
+	badSig := Signature{KeyID: keyID, Signature: []byte("invalid")}
+
+	for _, tc := range []struct {
+		name string
+		sigs []Signature
+		want string
+	}{
+		{"identical valid signatures", []Signature{*validTargetsSig, *validTargetsSig}, keyID},
+		{"invalid then valid for same keyID", []Signature{badSig, *validTargetsSig}, keyID},
+		{"valid then invalid for same keyID", []Signature{*validTargetsSig, badSig}, keyID},
+		{"duplicate unrelated keyID", []Signature{*validTargetsSig, {KeyID: "other", Signature: []byte("a")}, {KeyID: "other", Signature: []byte("b")}}, "other"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			targets.Signatures = tc.sigs
+			err := root.VerifyDelegate(TARGETS, targets)
+			assert.ErrorIs(t, err, &ErrValue{})
+			assert.EqualError(t, err, fmt.Sprintf("value error: multiple signatures found for key ID %s", tc.want))
+		})
+	}
+
+	// Verify all four top-level metadata types enforce signature keyID uniqueness.
+	root.Signatures = []Signature{*validRootSig, *validRootSig}
+	assert.ErrorIs(t, root.VerifyDelegate(ROOT, root), &ErrValue{})
+	snapshot.Signatures = []Signature{*validSnapshotSig, *validSnapshotSig}
+	assert.ErrorIs(t, root.VerifyDelegate(SNAPSHOT, snapshot), &ErrValue{})
+	timestamp.Signatures = []Signature{*validTimestampSig, *validTimestampSig}
+	assert.ErrorIs(t, root.VerifyDelegate(TIMESTAMP, timestamp), &ErrValue{})
+}
+
+func TestVerifyDelegateTypedNilMetadata(t *testing.T) {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+	key, err := KeyFromPublicKey(pub)
+	assert.NoError(t, err)
+
+	root := Root(fixedExpire)
+	for _, role := range []string{ROOT, SNAPSHOT, TIMESTAMP, TARGETS} {
+		assert.NoError(t, root.Signed.AddKey(key, role))
+	}
+
+	for _, tc := range []struct {
+		role string
+		meta any
+	}{
+		{ROOT, (*Metadata[RootType])(nil)},
+		{SNAPSHOT, (*Metadata[SnapshotType])(nil)},
+		{TIMESTAMP, (*Metadata[TimestampType])(nil)},
+		{TARGETS, (*Metadata[TargetsType])(nil)},
+	} {
+		t.Run(tc.role, func(t *testing.T) {
+			err := root.VerifyDelegate(tc.role, tc.meta)
+			assert.ErrorIs(t, err, &ErrValue{})
+			assert.EqualError(t, err, "value error: delegated metadata must not be nil")
+		})
+	}
+
+	err = root.VerifyDelegate(TARGETS, nil)
+	assert.ErrorIs(t, err, &ErrType{})
 }
 
 func TestRootAddKeyAndRevokeKey(t *testing.T) {
